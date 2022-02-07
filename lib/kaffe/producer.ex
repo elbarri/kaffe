@@ -20,6 +20,7 @@ defmodule Kaffe.Producer do
   """
 
   @kafka Application.get_env(:kaffe, :kafka_mod, :brod)
+  @tag_timestamp? Application.get_env(:kaffe, :tag_timestamp?, true)
 
   require Logger
 
@@ -120,7 +121,9 @@ defmodule Kaffe.Producer do
     |> add_timestamp
     |> group_by_partition(topic, partition_strategy)
     |> case do
-      messages = %{} -> produce_list_to_topic(messages, topic)
+      messages = %{} ->
+        produce_list_to_topic(messages, topic)
+
       {:error, reason} ->
         Logger.warn("Error while grouping by partition #{inspect(reason)}")
         {:error, reason}
@@ -137,21 +140,22 @@ defmodule Kaffe.Producer do
         )
 
         @kafka.produce_sync(client_name(), topic, partition, key, value)
+
       error ->
-        Logger.warn(
-          "event#produce topic=#{topic} key=#{key} error=#{inspect(error)}"
-        )
+        Logger.warn("event#produce topic=#{topic} key=#{key} error=#{inspect(error)}")
 
         error
     end
   end
 
-  defp add_timestamp(messages) do
+  defp add_timestamp(messages) when @tag_timestamp? do
     messages
     |> Enum.map(fn {key, message} ->
       {System.system_time(:millisecond), key, message}
     end)
   end
+
+  defp add_timestamp(messages), do: messages
 
   defp group_by_partition(messages, topic, partition_strategy) do
     with {:ok, partitions_count} <- @kafka.get_partitions_count(client_name(), topic) do
