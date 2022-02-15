@@ -160,8 +160,12 @@ defmodule Kaffe.Producer do
   defp group_by_partition(messages, topic, partition_strategy) do
     with {:ok, partitions_count} <- @kafka.get_partitions_count(client_name(), topic) do
       messages
-      |> Enum.group_by(fn {_timestamp, key, message} ->
-        choose_partition(topic, partitions_count, key, message, partition_strategy)
+      |> Enum.group_by(fn
+        {key, message} ->
+          choose_partition(topic, partitions_count, key, message, partition_strategy)
+
+        {_timestamp, key, message} ->
+          choose_partition(topic, partitions_count, key, message, partition_strategy)
       end)
     end
   end
